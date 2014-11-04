@@ -1,5 +1,2 @@
-/test/build/
-/node_modules/
-/coverage/
-/test/tmp/
+test/v31-build/
 *~

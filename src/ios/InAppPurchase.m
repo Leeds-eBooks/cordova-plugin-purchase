@@ -21,7 +21,7 @@ static BOOL g_autoFinishEnabled = YES;
         NSLog((@"InAppPurchase[objc]: " fmt), ##__VA_ARGS__); \
 }
 
-#define ERROR_CODES_BASE 6777000
+#define ERROR_CODES_BASE 4983497
 #define ERR_SETUP         (ERROR_CODES_BASE + 1)
 #define ERR_LOAD          (ERROR_CODES_BASE + 2)
 #define ERR_PURCHASE      (ERROR_CODES_BASE + 3)
@@ -379,15 +379,13 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
     {
 		error = state = transactionIdentifier = transactionReceipt = productId = @"";
 		errorCode = 0;
-        DLog(@"Transaction updated: %@", transaction.payment.productIdentifier);
+        DLog(@"Payment transaction updated (%@):", transaction.originalTransaction.payment.productIdentifier);
 
         switch (transaction.transactionState)
         {
 			case SKPaymentTransactionStatePurchasing:
 				DLog(@"Purchasing...");
-				state = @"PaymentTransactionStatePurchasing";
-				productId = transaction.payment.productIdentifier;
-				break;
+				continue;
 
             case SKPaymentTransactionStatePurchased:
 				state = @"PaymentTransactionStatePurchased";
@@ -400,21 +398,20 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
 				state = @"PaymentTransactionStateFailed";
 				error = transaction.error.localizedDescription;
 				errorCode = jsErrorCode(transaction.error.code);
-				productId = transaction.payment.productIdentifier;
-				DLog(@"Error %@ - %@", jsErrorCodeAsString(errorCode), error);
+				DLog(@"Error %@ %@", jsErrorCodeAsString(errorCode), error);
 				
 				// Finish failed transactions, when autoFinish is off
 				if (!g_autoFinishEnabled) {
 					[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
 					[self transactionFinished:transaction];
 				}
+				
+				DLog(@"Error %li %@", (unsigned long)errorCode, error);
                 break;
 
 			case SKPaymentTransactionStateRestored:
 				state = @"PaymentTransactionStateRestored";
-				transactionIdentifier = transaction.transactionIdentifier;
-                if (!transactionIdentifier)
-                    transactionIdentifier = transaction.originalTransaction.transactionIdentifier;
+				transactionIdentifier = transaction.originalTransaction.transactionIdentifier;
 				transactionReceipt = [[transaction transactionReceipt] base64EncodedString];
 				productId = transaction.originalTransaction.payment.productIdentifier;
                 break;
@@ -653,14 +650,11 @@ static NSString *rootAppleCA = @"MIIEuzCCA6OgAwIBAgIBAjANBgkqhkiG9w0BAQUFADBiMQs
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error
 {
-    DLog(@"AppStore unavailable (ERROR %li)", (unsigned long)error.code);
-    NSString *localizedDescription = [error localizedDescription];
-    if (!localizedDescription)
-        localizedDescription = @"AppStore unavailable";
-    else
-        DLog(@"%@", localizedDescription);
+    DLog(@"In-App Store unavailable (ERROR %li)", (unsigned long)error.code);
+    DLog(@"%@", [error localizedDescription]);
+
     CDVPluginResult* pluginResult =
-      [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:localizedDescription];
+      [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[error localizedDescription]];
     [self.plugin.commandDelegate sendPluginResult:pluginResult callbackId:self.command.callbackId];
 }
 
